@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Configuración básica del proyecto -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="chatgpt">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>chatgpt</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Agrega el SDK de Firebase usando las versiones "compat" -->
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-auth-compat.js"></script>
+
+  <script>
+    // Configuración de Firebase para tu aplicación
+    const firebaseConfig = {
+      apiKey: "AIzaSyAz92fJp2d1Iu0QCcApVjRvj8K_j_co7Tc",
+      authDomain: "chattdp-b2ab5.firebaseapp.com",
+      projectId: "chattdp-b2ab5",
+      storageBucket: "chattdp-b2ab5.appspot.com",
+      messagingSenderId: "746779309482",
+      appId: "1:746779309482:web:d901d07f4125622e6827d3",
+      measurementId: "G-E383CY9ZPQ"
+    };
+
+    // Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    // Opcional: inicializa Firebase Authentication
+    const auth = firebase.auth();
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

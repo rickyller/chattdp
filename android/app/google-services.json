@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "746779309482",
+    "project_id": "chattdp-b2ab5",
+    "storage_bucket": "chattdp-b2ab5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:746779309482:android:b24d230238fff0c96827d3",
+        "android_client_info": {
+          "package_name": "com.jagoteori.chatgpt"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "746779309482-ebapruotk940hi9klcs1n2osdcch546l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcwv0fTtoAwNmfzfYBxJVKl-hU6aJCFzY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "746779309482-ebapruotk940hi9klcs1n2osdcch546l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -12,12 +12,13 @@ part of 'question_answer.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#custom-getters-and-methods');
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$QuestionAnswer {
   String get question => throw _privateConstructorUsedError;
   StringBuffer get answer => throw _privateConstructorUsedError;
+  Uint8List? get image => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $QuestionAnswerCopyWith<QuestionAnswer> get copyWith =>
@@ -30,7 +31,7 @@ abstract class $QuestionAnswerCopyWith<$Res> {
           QuestionAnswer value, $Res Function(QuestionAnswer) then) =
       _$QuestionAnswerCopyWithImpl<$Res, QuestionAnswer>;
   @useResult
-  $Res call({String question, StringBuffer answer});
+  $Res call({String question, StringBuffer answer, Uint8List? image});
 }
 
 /// @nodoc
@@ -48,6 +49,7 @@ class _$QuestionAnswerCopyWithImpl<$Res, $Val extends QuestionAnswer>
   $Res call({
     Object? question = null,
     Object? answer = null,
+    Object? image = freezed,
   }) {
     return _then(_value.copyWith(
       question: null == question
@@ -58,27 +60,31 @@ class _$QuestionAnswerCopyWithImpl<$Res, $Val extends QuestionAnswer>
           ? _value.answer
           : answer // ignore: cast_nullable_to_non_nullable
               as StringBuffer,
+      image: freezed == image
+          ? _value.image
+          : image // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
     ) as $Val);
   }
 }
 
 /// @nodoc
-abstract class _$$_QuestionAnswerCopyWith<$Res>
+abstract class _$$QuestionAnswerImplCopyWith<$Res>
     implements $QuestionAnswerCopyWith<$Res> {
-  factory _$$_QuestionAnswerCopyWith(
-          _$_QuestionAnswer value, $Res Function(_$_QuestionAnswer) then) =
-      __$$_QuestionAnswerCopyWithImpl<$Res>;
+  factory _$$QuestionAnswerImplCopyWith(_$QuestionAnswerImpl value,
+          $Res Function(_$QuestionAnswerImpl) then) =
+      __$$QuestionAnswerImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String question, StringBuffer answer});
+  $Res call({String question, StringBuffer answer, Uint8List? image});
 }
 
 /// @nodoc
-class __$$_QuestionAnswerCopyWithImpl<$Res>
-    extends _$QuestionAnswerCopyWithImpl<$Res, _$_QuestionAnswer>
-    implements _$$_QuestionAnswerCopyWith<$Res> {
-  __$$_QuestionAnswerCopyWithImpl(
-      _$_QuestionAnswer _value, $Res Function(_$_QuestionAnswer) _then)
+class __$$QuestionAnswerImplCopyWithImpl<$Res>
+    extends _$QuestionAnswerCopyWithImpl<$Res, _$QuestionAnswerImpl>
+    implements _$$QuestionAnswerImplCopyWith<$Res> {
+  __$$QuestionAnswerImplCopyWithImpl(
+      _$QuestionAnswerImpl _value, $Res Function(_$QuestionAnswerImpl) _then)
       : super(_value, _then);
 
   @pragma('vm:prefer-inline')
@@ -86,8 +92,9 @@ class __$$_QuestionAnswerCopyWithImpl<$Res>
   $Res call({
     Object? question = null,
     Object? answer = null,
+    Object? image = freezed,
   }) {
-    return _then(_$_QuestionAnswer(
+    return _then(_$QuestionAnswerImpl(
       question: null == question
           ? _value.question
           : question // ignore: cast_nullable_to_non_nullable
@@ -96,56 +103,69 @@ class __$$_QuestionAnswerCopyWithImpl<$Res>
           ? _value.answer
           : answer // ignore: cast_nullable_to_non_nullable
               as StringBuffer,
+      image: freezed == image
+          ? _value.image
+          : image // ignore: cast_nullable_to_non_nullable
+              as Uint8List?,
     ));
   }
 }
 
 /// @nodoc
 
-class _$_QuestionAnswer implements _QuestionAnswer {
-  const _$_QuestionAnswer({required this.question, required this.answer});
+class _$QuestionAnswerImpl implements _QuestionAnswer {
+  const _$QuestionAnswerImpl(
+      {required this.question, required this.answer, this.image});
 
   @override
   final String question;
   @override
   final StringBuffer answer;
+  @override
+  final Uint8List? image;
 
   @override
   String toString() {
-    return 'QuestionAnswer(question: $question, answer: ${answer.toString()})';
+    return 'QuestionAnswer(question: $question, answer: $answer, image: $image)';
   }
 
   @override
-  bool operator ==(dynamic other) {
+  bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$_QuestionAnswer &&
+            other is _$QuestionAnswerImpl &&
             (identical(other.question, question) ||
                 other.question == question) &&
-            (identical(other.answer, answer) || other.answer == answer));
+            (identical(other.answer, answer) || other.answer == answer) &&
+            const DeepCollectionEquality().equals(other.image, image));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, question, answer);
+  int get hashCode => Object.hash(runtimeType, question, answer,
+      const DeepCollectionEquality().hash(image));
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
-  _$$_QuestionAnswerCopyWith<_$_QuestionAnswer> get copyWith =>
-      __$$_QuestionAnswerCopyWithImpl<_$_QuestionAnswer>(this, _$identity);
+  _$$QuestionAnswerImplCopyWith<_$QuestionAnswerImpl> get copyWith =>
+      __$$QuestionAnswerImplCopyWithImpl<_$QuestionAnswerImpl>(
+          this, _$identity);
 }
 
 abstract class _QuestionAnswer implements QuestionAnswer {
   const factory _QuestionAnswer(
       {required final String question,
-      required final StringBuffer answer}) = _$_QuestionAnswer;
+      required final StringBuffer answer,
+      final Uint8List? image}) = _$QuestionAnswerImpl;
 
   @override
   String get question;
   @override
   StringBuffer get answer;
   @override
+  Uint8List? get image;
+  @override
   @JsonKey(ignore: true)
-  _$$_QuestionAnswerCopyWith<_$_QuestionAnswer> get copyWith =>
+  _$$QuestionAnswerImplCopyWith<_$QuestionAnswerImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

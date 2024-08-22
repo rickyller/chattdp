@@ -1,8 +1,20 @@
 import 'package:chatgpt/view/splash_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';  // Asegúrate de importar firebase_options.dart aquí
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,  // Usa las opciones correctas para cada plataforma
+    );
+    runApp(const MyApp());
+  } catch (e) {
+    // Manejo de errores durante la inicialización de Firebase
+    print('Error al inicializar Firebase: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -10,9 +22,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: SplashScreen(),
+      home: SplashScreen(),  // Asegúrate de que SplashScreen esté correctamente definido
     );
   }
 }

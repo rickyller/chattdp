@@ -1,7 +1,12 @@
-import 'package:chatgpt/theme.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
 import 'chat_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:chatgpt/view/login.dart';
+
+import 'login.dart';  // Importa la página de inicio de sesión
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,17 +18,17 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
-    Future.delayed(const Duration(milliseconds: 2000)).then((value) {
+    Future.delayed(const Duration(milliseconds: 4000)).then((value) {
       Navigator.of(context).pushReplacement(PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const ChatScreen(),
+        const LoginPage(),  // Cambia a SignInPage en lugar de ChatScreen
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.bounceOut;
 
           var tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
 
           return SlideTransition(
             position: animation.drive(tween),
@@ -49,21 +54,49 @@ class _SplashScreenState extends State<SplashScreen> {
             Align(
               alignment: Alignment.topRight,
               child: Image.asset(
-                width: width * 0.8,
                 "assets/top-bg-splash.png",
+                width: width * 0.8,
               ),
             ),
             Align(
               alignment: Alignment.bottomLeft,
               child: Image.asset(
-                width: width * 0.7,
                 "assets/bot_bg_splash.png",
+                width: width * 0.7,
               ),
             ),
             Center(
-              child: Image.asset(
-                "assets/logo.png",
-                height: 65,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+                  DefaultTextStyle(
+                    style: const TextStyle(
+                      fontSize: 44.0,
+                      fontFamily: 'Nud',
+                      color: Colors.white,
+                    ),
+                    child: AnimatedTextKit(
+                      animatedTexts: [
+                        TypewriterAnimatedText(
+                          'ChatTDP',
+                          speed: const Duration(milliseconds: 50),
+                          textStyle: const TextStyle(
+                            fontSize: 44,
+                          ),
+                        ),
+                        TypewriterAnimatedText(
+                          'by Ricardo Murillo',
+                          speed: const Duration(milliseconds: 50),
+                          textStyle: const TextStyle(
+                            fontSize: 22,
+                          ),
+                        ),
+                      ],
+                      totalRepeatCount: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

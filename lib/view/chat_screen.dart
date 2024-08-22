@@ -1,14 +1,16 @@
 import 'dart:async';
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:chat_gpt_flutter/chat_gpt_flutter.dart';
-import 'package:chatgpt/api_key.dart';
 import 'package:chatgpt/model/question_answer.dart';
 import 'package:chatgpt/theme.dart';
-import 'package:chatgpt/view/components/chatgpt_answer_widget.dart';
+import 'package:chatgpt/view/components/chatgpt_answer_widget.dart' as answer_widget;
 import 'package:chatgpt/view/components/loading_widget.dart';
-import 'package:chatgpt/view/components/text_input_widget.dart';
+import 'package:chatgpt/view/components/text_input_widget.dart' as input_widget;
 import 'package:chatgpt/view/components/user_question_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -23,15 +25,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<QuestionAnswer> questionAnswers = [];
 
   late ScrollController scrollController;
-  late ChatGpt chatGpt;
   late TextEditingController inputQuestionController;
-  StreamSubscription<CompletionResponse>? streamSubscription;
 
   @override
   void initState() {
     inputQuestionController = TextEditingController();
     scrollController = ScrollController();
-    chatGpt = ChatGpt(apiKey: openAIApiKey);
     super.initState();
   }
 
@@ -40,7 +39,6 @@ class _ChatScreenState extends State<ChatScreen> {
     inputQuestionController.dispose();
     loadingNotifier.dispose();
     scrollController.dispose();
-    streamSubscription?.cancel();
     super.dispose();
   }
 
@@ -53,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
         shadowColor: Colors.white12,
         centerTitle: true,
         title: Text(
-          "ChatGPT",
+          "ChatTDP",
           style: kWhiteText.copyWith(fontSize: 20, fontWeight: kSemiBold),
         ),
         backgroundColor: kBg300Color,
@@ -62,9 +60,10 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             buildChatList(),
-            TextInputWidget(
+            input_widget.TextInputWidget(
               textController: inputQuestionController,
-              onSubmitted: () => _sendMessage(),
+              onSubmitted: _sendTextMessage,
+              onImagePicked: _handleImagePicked,
             )
           ],
         ),
@@ -80,31 +79,24 @@ class _ChatScreenState extends State<ChatScreen> {
           height: 12,
         ),
         physics: const BouncingScrollPhysics(),
-        padding:
-            const EdgeInsets.only(bottom: 20, left: 16, right: 16, top: 16),
+        padding: const EdgeInsets.only(bottom: 20, left: 16, right: 16, top: 16),
         itemCount: questionAnswers.length,
         itemBuilder: (BuildContext context, int index) {
           final question = questionAnswers[index].question;
           final answer = questionAnswers[index].answer;
+          final image = questionAnswers[index].image;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              UserQuestionWidget(question: question),
+              UserQuestionWidget(
+                question: question,
+                imageBytes: image,
+              ),
               const SizedBox(height: 16),
-              ValueListenableBuilder(
-                valueListenable: loadingNotifier,
-                builder: (_, bool isLoading, __) {
-                  if (answer.isEmpty && isLoading) {
-                    _scrollToBottom();
-                    return const LoadingWidget();
-                  } else {
-                    return ChatGptAnswerWidget(
-                      answer: answer.toString().trim(),
-                    );
-                  }
-                },
-              )
+              answer_widget.ChatGptAnswerWidget(
+                answer: answer.toString().trim(),
+              ),
             ],
           );
         },
@@ -122,42 +114,114 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _sendMessage() async {
-    final question = inputQuestionController.text;
+  void _sendTextMessage() {
+    _handleMessageSubmission();
+  }
+
+  void _handleImagePicked(XFile? image) {
+    if (image != null) {
+      _handleMessageSubmission(image: image);
+    }
+  }
+
+  bool _isSubmitting = false;
+
+  Future<void> _handleMessageSubmission({String? question, XFile? image}) async {
+    if (_isSubmitting) return; // Salir si ya se está procesando un envío
+    _isSubmitting = true;
+
+    final text = question ?? inputQuestionController.text.trim();
+
+    if (text.isEmpty && image == null) {
+      _showError('Debes ingresar una pregunta o seleccionar una imagen.');
+      _isSubmitting = false;
+      return;
+    }
+
+    Uint8List? imageBytes;
+    if (image != null) {
+      imageBytes = await image.readAsBytes();
+    }
+
     inputQuestionController.clear();
     loadingNotifier.value = true;
 
-    setState(() => questionAnswers
-        .add(QuestionAnswer(question: question, answer: StringBuffer())));
+    setState(() {
+      questionAnswers.add(
+        QuestionAnswer(
+          question: text.isEmpty ? '[Imagen]' : text,
+          answer: StringBuffer(),
+          image: imageBytes,
+        ),
+      );
+    });
 
-    final testRequest = CompletionRequest(
-      prompt: [question],
-      stream: true,
-      maxTokens: 500,
-      temperature: 1,
-      model: ChatGptModel.textDavinci003,
-    );
-    await _streamResponse(testRequest)
-        .whenComplete(() => loadingNotifier.value = true);
+    final response = await _sendRequestToServer(text, image: image);
+    loadingNotifier.value = false;
+
+    if (response != null) {
+      setState(() {
+        questionAnswers.last.answer.clear();
+        questionAnswers.last.answer.write(response);
+        _scrollToBottom();
+      });
+    } else {
+      setState(() {
+        questionAnswers.last.answer.write("Error al obtener respuesta del servidor");
+      });
+    }
+
+    _isSubmitting = false;
   }
 
-  Future _streamResponse(CompletionRequest request) async {
-    streamSubscription?.cancel();
+
+
+  Future<String?> _sendRequestToServer(String question, {XFile? image}) async {
+    const url = 'https://chattdp-service-gmpuppbwwq-uc.a.run.app/generate';
+
     try {
-      final stream = await chatGpt.createCompletionStream(request);
-      streamSubscription = stream?.listen((event) {
-        if (event.streamMessageEnd) {
-          streamSubscription?.cancel();
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+
+      request.fields['input'] = question.isEmpty ? '[Imagen sin texto]' : question;
+
+      if (image != null) {
+        if (kIsWeb) {
+          var imageBytes = await image.readAsBytes();
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'image',
+              imageBytes,
+              filename: image.name,
+            ),
+          );
         } else {
-          setState(() {
-            questionAnswers.last.answer.write(event.choices?.first.text);
-            _scrollToBottom();
-          });
+          var imageFile = await http.MultipartFile.fromPath('image', image.path);
+          request.files.add(imageFile);
         }
-      });
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        return jsonResponse['output'];
+      } else {
+        _showError('Error: ${response.statusCode} - ${response.body}');
+      }
     } catch (e) {
-      debugPrint("Error: $e");
-      setState(() => questionAnswers.last.answer.write("error"));
+      _showError('Error: $e');
     }
+
+    return null;
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 }
