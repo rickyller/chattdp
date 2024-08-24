@@ -2,7 +2,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'chat_screen.dart';
+import 'chat_screen_user.dart';
 import 'package:flutter/material.dart';
 import 'package:chatgpt/view/login.dart';
 

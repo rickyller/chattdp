@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:chatgpt/view/login.dart';
 import 'package:http/http.dart' as http;
 import 'package:chat_gpt_flutter/chat_gpt_flutter.dart';
 import 'package:chatgpt/model/question_answer.dart';
@@ -12,14 +13,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+class ChatScreenAdmin extends StatefulWidget {
+  const ChatScreenAdmin({Key? key}) : super(key: key);
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<ChatScreenAdmin> createState() => _ChatScreenAdminState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenAdminState extends State<ChatScreenAdmin> {
   String? answer;
   final loadingNotifier = ValueNotifier<bool>(false);
   final List<QuestionAnswer> questionAnswers = [];
@@ -50,6 +51,15 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 1,
         shadowColor: Colors.white12,
         centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
+
+          },
+        ),
         title: Text(
           "ChatTDP",
           style: kWhiteText.copyWith(fontSize: 20, fontWeight: kSemiBold),
@@ -173,8 +183,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _isSubmitting = false;
   }
-
-
 
   Future<String?> _sendRequestToServer(String question, {XFile? image}) async {
     const url = 'https://chattdp-service-gmpuppbwwq-uc.a.run.app/generate';
