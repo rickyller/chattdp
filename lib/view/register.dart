@@ -126,148 +126,140 @@ class _RegisterPageState extends State<RegisterPage> {
     SystemChrome.setSystemUIOverlayStyle(
         const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
     return Scaffold(
-        backgroundColor: kBg500Color,  // Fondo de la pantalla
-        body: SingleChildScrollView(
+      backgroundColor: kBg500Color,  // Fondo de la pantalla
+      body: SingleChildScrollView(
         child: Container(
-        width: size.width,
-        height: size.height,
-        padding: const EdgeInsets.only(left: 20, right: 20, top: 150, bottom: 80),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-    Text(
-    "Create Account",
-    style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: kWhiteColor),  // Color de texto principal
-    ),
-    Column(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-    Align(
-    alignment: Alignment.centerLeft,  // Coloca el botón en el lado izquierdo
-    child: ElevatedButton.icon(
-    onPressed: _signInWithGoogle,
-    icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
-    label: const Text("Regístrate con Google"),
-    style: ElevatedButton.styleFrom(
-    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),  // Ajuste de padding para un botón más grande
-    shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(20),
-    ),
-    backgroundColor: kBg300Color,  // Usar kBg300Color para el fondo del botón
-    elevation: 0,
-    foregroundColor: kWhiteColor,  // Usar kWhiteColor para el color del texto
-    ),
-    ),
-    ),
-
-    const SizedBox(height: 30),
-    Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-    decoration: BoxDecoration(
-    color: kBg300Color,  // Color de fondo de los campos de texto
-    borderRadius: const BorderRadius.all(Radius.circular(20)),
-    ),
-    child: TextField(
-    controller: _emailController,
-    style: const TextStyle(color: kWhiteColor),  // Color del texto dentro de los campos
-    decoration: const InputDecoration(
-    border: InputBorder.none,
-    hintText: "Correo",
-    hintStyle: TextStyle(color: kWhiteColor),  // Color del hint text
-    ),
-    ),
-    ),
-    const SizedBox(
-    height: 20,
-    ),
-    Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-    decoration: BoxDecoration(
-    color: kBg300Color,  // Color de fondo de los campos de texto
-    borderRadius: const BorderRadius.all(Radius.circular(20)),
-    ),
-    child: TextField(
-    controller: _passwordController,
-    obscureText: true,
-    style: const TextStyle(color: kWhiteColor),  // Color del texto dentro de los campos
-    decoration: const InputDecoration(
-    border: InputBorder.none,
-    hintText: "Contraseña",
-    hintStyle: TextStyle(color: kWhiteColor),  // Color del hint text
-    ),
-    ),
-    ),
-    const SizedBox(
-    height: 20,
-    ),
-    Container(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-    decoration: BoxDecoration(
-    color: kBg300Color,  // Color de fondo de los campos de texto
-    borderRadius: const BorderRadius.all(Radius.circular(20)),
-    ),
-    child: TextField(
-    controller: _confirmPasswordController,
-    obscureText: true,
-    style: const TextStyle(color: kWhiteColor),  // Color del texto dentro de los campos
-    decoration: const InputDecoration(
-    border: InputBorder.none,
-    hintText: "Confirmar contraseña",
-    hintStyle: TextStyle(color: kWhiteColor),  // Color del hint text
-    ),
-    ),
-    ),
-    const SizedBox(
-    height: 20,
-    ),
-    ],
-    ),
-    Column(
-    children: [
-    ElevatedButton(
-    onPressed: _register,
-    style: ElevatedButton.styleFrom(
-    elevation: 0,
-    padding: const EdgeInsets.all(18),
-    shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(20),
-    ),
-    backgroundColor: kPrimaryColor,  // Color del botón de registro
-    ),
-    child: const Center(
-    child: Text(
-    "Registrarse",
-    style: TextStyle(
-    fontWeight: FontWeight.bold,
-    color: kWhiteColor,  // Color del texto del botón
-    ),
-    ),
-    ),
-    ),
-    const SizedBox(height: 30,),
-    MouseRegion(
-    cursor: SystemMouseCursors.click, // Cambia el cursor a una manita
-    child: GestureDetector(                    onTap: () {
-      // Navegar a la página de inicio de sesión
-      Navigator.of(context).pop();
-    },
-      child: const Center(
-        child: Text(
-          "¿Ya tienes una cuenta? Inicia sesión.",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: kWhiteColor,  // Color del texto "Sign In"
+          width: size.width,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Create Account",
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: kWhiteColor),
+              ),
+              const SizedBox(height: 50),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
+                      label: const Text("Regístrate con Google"),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        backgroundColor: kBg300Color,
+                        elevation: 0,
+                        foregroundColor: kWhiteColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: kBg300Color,
+                      borderRadius: const BorderRadius.all(Radius.circular(20)),
+                    ),
+                    child: TextField(
+                      controller: _emailController,
+                      style: const TextStyle(color: kWhiteColor),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "Correo",
+                        hintStyle: TextStyle(color: kWhiteColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: kBg300Color,
+                      borderRadius: const BorderRadius.all(Radius.circular(20)),
+                    ),
+                    child: TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      style: const TextStyle(color: kWhiteColor),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "Contraseña",
+                        hintStyle: TextStyle(color: kWhiteColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: kBg300Color,
+                      borderRadius: const BorderRadius.all(Radius.circular(20)),
+                    ),
+                    child: TextField(
+                      controller: _confirmPasswordController,
+                      obscureText: true,
+                      style: const TextStyle(color: kWhiteColor),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "Confirmar contraseña",
+                        hintStyle: TextStyle(color: kWhiteColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _register,
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  padding: const EdgeInsets.all(18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  backgroundColor: kPrimaryColor,
+                ),
+                child: const Center(
+                  child: Text(
+                    "Registrarse",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: kWhiteColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Center(
+                    child: Text(
+                      "¿Ya tienes una cuenta? Inicia sesión.",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: kWhiteColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ),
-    ),
-    ],
-    ),
-    ],
-        ),
-        ),
-    ));
+    );
   }
+
 }

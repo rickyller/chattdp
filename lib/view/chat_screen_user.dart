@@ -53,50 +53,54 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
       appBar: AppBar(
         elevation: 1,
         shadowColor: Colors.white12,
-        centerTitle: true,
+        centerTitle: false,  // Puedes cambiar esto a false si prefieres alineación a la izquierda
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (context) => const LoginPage()),
             );
-
           },
         ),
-        title: Stack(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Align(
-              alignment: Alignment.center,
-              child: Text(
-                "ChatTDP",
-                style: kWhiteText.copyWith(fontSize: 20, fontWeight: kSemiBold),
+            Text(
+              "ChatTDP",
+              style: kWhiteText.copyWith(
+                fontSize: 20,
+                fontWeight: kSemiBold,
               ),
             ),
-            Positioned(
-              right: 0,
-              child: Row(
-                children: [
-                  Icon(Icons.question_answer, color: Colors.white), // Icono de preguntas
-                  const SizedBox(width: 8), // Espacio entre el icono y el texto
-                  Text(
-                    "${questionLimit - currentQuestionCount} incidentes restantes",
-                    style: kWhiteText.copyWith(fontSize: 14, fontWeight: kRegular),
+            Row(
+              children: [
+                Icon(Icons.question_answer, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  "${questionLimit - currentQuestionCount} incidentes restantes",
+                  style: kWhiteText.copyWith(
+                    fontSize: 14,
+                    fontWeight: kRegular,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
         backgroundColor: kBg300Color,
       ),
+
       body: SafeArea(
         child: Column(
           children: [
-            buildChatList(),
-            input_widget.TextInputWidget(
-              textController: inputQuestionController,
-              onSubmitted: _sendTextMessage,
-              onImagePicked: _handleImagePicked,
+            Expanded(child: buildChatList()), // Cambiado a Expanded
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: input_widget.TextInputWidget(
+                textController: inputQuestionController,
+                onSubmitted: _sendTextMessage,
+                onImagePicked: _handleImagePicked,
+              ),
             ),
           ],
         ),
@@ -104,16 +108,13 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
     );
   }
 
-
   Expanded buildChatList() {
     return Expanded(
       child: ListView.separated(
         controller: scrollController,
-        separatorBuilder: (context, index) => const SizedBox(
-          height: 12,
-        ),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 20, left: 16, right: 16, top: 16),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         itemCount: questionAnswers.length,
         itemBuilder: (BuildContext context, int index) {
           final question = questionAnswers[index].question;
@@ -137,6 +138,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
       ),
     );
   }
+
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
