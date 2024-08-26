@@ -11,6 +11,7 @@ import 'package:chatgpt/view/components/user_question_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
+import 'package:shared_preferences/shared_preferences.dart'; // Importa el paquete
 
 import 'login.dart';
 

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_screen_admin.dart';
 import 'chat_screen_user.dart';
 import '../theme.dart';
@@ -18,8 +19,47 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _rememberMe = false;
+  bool _passwordVisible = false; // Estado para controlar la visibilidad de la contraseña
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserCredentials(); // Cargar credenciales guardadas si existen
+  }
+
+  // Cargar credenciales almacenadas
+  void _loadUserCredentials() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _emailController.text = prefs.getString('email') ?? '';
+      _passwordController.text = prefs.getString('password') ?? '';
+      _rememberMe = prefs.getBool('remember_me') ?? false;
+    });
+  }
+
+  // Guardar credenciales si 'Recordar contraseña' está activado
+  void _saveUserCredentials() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('email', _emailController.text);
+    prefs.setString('password', _passwordController.text);
+    prefs.setBool('remember_me', _rememberMe);
+  }
+
+  // Eliminar credenciales guardadas
+  void _clearUserCredentials() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.remove('email');
+    prefs.remove('password');
+    prefs.remove('remember_me');
+  }
 
   void _signIn() async {
+    if (_rememberMe) {
+      _saveUserCredentials(); // Guardar credenciales
+    } else {
+      _clearUserCredentials(); // Borrar credenciales
+    }
     try {
       print('Intentando iniciar sesión con el correo: ${_emailController.text}');
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -161,27 +201,42 @@ class _LoginPageState extends State<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Hola, \nBienvenido a ChatTdp",
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: kWhiteColor),
+                "Hola, \nBienvenido a ChatTDP",
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: kWhiteColor,
+                  fontFamily: 'Nud', // Aplicar la fuente 'Nud'
+                ),
               ),
+
               const SizedBox(height: 50),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _signInWithGoogle,
-                    icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
-                    label: const Text("Inicia sesión con Google"),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
+                      label: const Text(
+                        "Inicia sesión con Google",
+                        style: TextStyle(
+                          fontFamily: 'Nud', // Especifica la fuente Nud aquí
+                          color: kWhiteColor,
+                          fontWeight: FontWeight.bold, // Si deseas mantener el texto en negrita
+                        ),
                       ),
-                      backgroundColor: kBg300Color,
-                      elevation: 0,
-                      foregroundColor: kWhiteColor,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        backgroundColor: kBg300Color,
+                        elevation: 0,
+                        foregroundColor: kWhiteColor,
+                      ),
                     ),
                   ),
+
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
@@ -195,11 +250,17 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Correo",
-                        hintStyle: TextStyle(color: kWhiteColor),
+                        hintStyle: TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),
+
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // Campo de contraseña con ícono de ojo
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                     decoration: BoxDecoration(
@@ -208,15 +269,62 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     child: TextField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: !_passwordVisible, // Aquí se controla si la contraseña es visible
                       style: const TextStyle(color: kWhiteColor),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: "Contraseña",
-                        hintStyle: TextStyle(color: kWhiteColor),
+                        hintStyle: const TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                            color: kWhiteColor,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _passwordVisible = !_passwordVisible;
+                            });
+                          },
+                        ),
                       ),
                     ),
                   ),
+                  // Casilla de verificación 'Recordar contraseña'
+                  Row(
+                    children: [
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          unselectedWidgetColor: kWhiteColor, // Color del borde cuando no está seleccionado
+                        ),
+                        child: Checkbox(
+                          value: _rememberMe,
+                          checkColor: kBg500Color, // Color del checkmark
+                          activeColor: kPrimaryColor, // Color de fondo cuando está seleccionado
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value!;
+                            });
+                          },
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5), // Esquinas redondeadas
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Recordar contraseña',
+
+                        style: TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 20),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
@@ -224,7 +332,12 @@ class _LoginPageState extends State<LoginPage> {
                       onTap: _resetPassword,
                       child: Text(
                         "¿Olvidó su contraseña?",
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: kWhiteColor),
+                        style: TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),
+
                       ),
                     ),
                   ),
@@ -245,6 +358,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text(
                     "Iniciar sesión",
                     style: TextStyle(
+                      fontFamily: 'Nud',  // Especifica la fuente Nud aquí
                       fontWeight: FontWeight.bold,
                       color: kWhiteColor,
                     ),
@@ -271,11 +385,13 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text(
                     "Crear cuenta",
                     style: TextStyle(
+                      fontFamily: 'Nud',  // Especifica la fuente Nud aquí
                       fontWeight: FontWeight.bold,
                       color: kWhiteColor,
                     ),
                   ),
                 ),
+
               ),
             ],
           ),

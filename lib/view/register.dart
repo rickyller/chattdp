@@ -17,12 +17,25 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  bool _passwordVisible = false;
 
   void _register() async {
-    if (_passwordController.text != _confirmPasswordController.text) {
+    // Validar las características de la contraseña
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (password != confirmPassword) {
       // Mostrar error si las contraseñas no coinciden
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Las contraseñas no coinciden")),
+      );
+      return;
+    }
+
+    if (!_isPasswordValid(password)) {
+      // Mostrar error si la contraseña no cumple con los requisitos
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("La contraseña no cumple con los requisitos: al menos 8 caracteres, incluir una letra mayúscula, una minúscula y un número.")),
       );
       return;
     }
@@ -31,7 +44,7 @@ class _RegisterPageState extends State<RegisterPage> {
       // Crear usuario en Firebase Authentication
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text,
-        password: _passwordController.text,
+        password: password,
       );
 
       // Enviar verificación de correo electrónico
@@ -60,6 +73,17 @@ class _RegisterPageState extends State<RegisterPage> {
       );
     }
   }
+
+  bool _isPasswordValid(String password) {
+    // Requisitos de la contraseña
+    final hasMinLength = password.length >= 8;
+    final hasUpperCase = password.contains(RegExp(r'[A-Z]'));
+    final hasLowerCase = password.contains(RegExp(r'[a-z]'));
+    final hasDigits = password.contains(RegExp(r'[0-9]'));
+
+    return hasMinLength && hasUpperCase && hasLowerCase && hasDigits;
+  }
+
 
   Future<void> _signInWithGoogle() async {
     try {
@@ -136,30 +160,42 @@ class _RegisterPageState extends State<RegisterPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Create Account",
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: kWhiteColor),
+                "Crear Cuenta",
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: kWhiteColor,
+                  fontFamily: 'Nud', // Aplicar la fuente 'Nud'
+                ),
               ),
+
               const SizedBox(height: 50),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Align(
-                    alignment: Alignment.centerLeft,
-                    child: ElevatedButton.icon(
-                      onPressed: _signInWithGoogle,
-                      icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
-                      label: const Text("Regístrate con Google"),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        backgroundColor: kBg300Color,
-                        elevation: 0,
-                        foregroundColor: kWhiteColor,
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton.icon(
+                    onPressed: _signInWithGoogle,
+                    icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
+                    label: const Text(
+                      "Regístrate con Google",
+                      style: TextStyle(
+                        fontFamily: 'Nud', // Especifica la fuente Nud aquí
+                        color: kWhiteColor,
+                        fontWeight: FontWeight.bold, // Mantén el texto en negrita si es necesario
                       ),
                     ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      backgroundColor: kBg300Color,
+                      elevation: 0,
+                      foregroundColor: kWhiteColor,
+                    ),
                   ),
+                ),
+
                   const SizedBox(height: 30),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
@@ -173,7 +209,11 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Correo",
-                        hintStyle: TextStyle(color: kWhiteColor),
+                        hintStyle: const TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),
                       ),
                     ),
                   ),
@@ -184,17 +224,41 @@ class _RegisterPageState extends State<RegisterPage> {
                       color: kBg300Color,
                       borderRadius: const BorderRadius.all(Radius.circular(20)),
                     ),
-                    child: TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      style: const TextStyle(color: kWhiteColor),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: "Contraseña",
-                        hintStyle: TextStyle(color: kWhiteColor),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: !_passwordVisible, // Controla si la contraseña es visible o no
+                          style: const TextStyle(color: kWhiteColor),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Contraseña",
+                            hintStyle: const TextStyle(
+                              fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                              fontWeight: FontWeight.bold,
+                              color: kWhiteColor,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                                color: kWhiteColor,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _passwordVisible = !_passwordVisible;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+
+                      ],
+
                     ),
+
                   ),
+
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
@@ -209,10 +273,31 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Confirmar contraseña",
-                        hintStyle: TextStyle(color: kWhiteColor),
+                        hintStyle: const TextStyle(
+                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                          fontWeight: FontWeight.bold,
+                          color: kWhiteColor,
+                        ),
+
                       ),
                     ),
                   ),
+                  const SizedBox(height: 5),
+                  Align(
+                    alignment: Alignment.centerLeft, // Mantiene la alineación a la izquierda
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 10.0), // Añade un pequeño margen a la izquierda
+                      child: const Text(
+                        "Debe tener al menos 8 caracteres, incluir una letra mayúscula, una minúscula y un número.",
+                        style: TextStyle(
+                          color: kWhiteColor,
+                          fontSize: 12,
+                          fontFamily: 'Nud', // Aplicar la fuente 'Nud'
+                        ),
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 20),
                 ],
               ),
@@ -233,6 +318,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: kWhiteColor,
+                      fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+
                     ),
                   ),
                 ),
@@ -249,6 +336,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       "¿Ya tienes una cuenta? Inicia sesión.",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
+                        fontFamily: 'Nud',  // Especifica la fuente Nud aquí
                         color: kWhiteColor,
                       ),
                     ),
