@@ -14,6 +14,71 @@ import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:shared_preferences/shared_preferences.dart'; // Importa el paquete
 
 import 'login.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class QuestionLimitService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<bool> canAskQuestion() async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception("Usuario no autenticado");
+    }
+
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    final data = userDoc.data();
+
+    if (data == null) {
+      return true;
+    }
+
+    final lastAskedTime = (data['lastAskedTime'] as Timestamp?)?.toDate();
+    final questionCount = data['questionCount'] ?? 0;
+
+    final now = DateTime.now();
+    final timeDifference = now.difference(lastAskedTime ?? now);
+
+    if (timeDifference.inHours >= 24) {
+      // Resetea el contador si han pasado 24 horas
+      await _firestore.collection('users').doc(user.uid).update({
+        'questionCount': 0,
+        'lastAskedTime': now,
+      });
+      return true;
+    }
+
+    if (questionCount >= 25) {
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> incrementQuestionCount() async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception("Usuario no autenticado");
+    }
+
+    final userDoc = _firestore.collection('users').doc(user.uid);
+
+    final currentData = await userDoc.get();
+    if (currentData.exists) {
+      final questionCount = currentData.data()?['questionCount'] ?? 0;
+
+      await userDoc.update({
+        'questionCount': questionCount + 1,
+        'lastAskedTime': DateTime.now(),
+      });
+    } else {
+      throw Exception("No se pudo obtener la información del usuario.");
+    }
+  }
+}
 
 class ChatScreenUser extends StatefulWidget {
   const ChatScreenUser({Key? key}) : super(key: key);
@@ -26,18 +91,71 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   String? answer;
   final loadingNotifier = ValueNotifier<bool>(false);
   final List<QuestionAnswer> questionAnswers = [];
+  final questionLimitService = QuestionLimitService();
 
-  int questionLimit = 3; // Define el límite de preguntas
-  int currentQuestionCount = 0; // Lleva el conteo de las preguntas realizadas
+  int questionLimit = 25;
+  int currentQuestionCount = 0;
 
   late ScrollController scrollController;
   late TextEditingController inputQuestionController;
+
+  void _checkSessionValidity() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Obtén los datos del usuario desde Firestore
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final userData = userDoc.data();
+
+      if (userData != null) {
+        final storedSessionToken = userData['sessionToken'];
+        print("Stored sessionToken en Firestore: $storedSessionToken");
+
+        // Obtén el token de sesión almacenado localmente
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        String? localSessionToken = prefs.getString('sessionToken');
+        print("Local sessionToken: $localSessionToken");
+
+        // Comparar el token de Firestore con el token local
+        if (storedSessionToken != localSessionToken) {
+          // Si los tokens no coinciden, cierra la sesión y redirige al login
+          _showError("Tu sesión ha caducado. Se cerrará la sesión.");
+          await FirebaseAuth.instance.signOut();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        }
+      } else {
+        _showError("No se pudieron obtener los datos del usuario.");
+      }
+    }
+  }
 
   @override
   void initState() {
     inputQuestionController = TextEditingController();
     scrollController = ScrollController();
+    _loadQuestionCount(); // Cargar el contador desde Firestore
     super.initState();
+    _checkSessionValidity(); // Verificación al cargar la página
+
+    // Verificación periódica cada minuto
+    Timer.periodic(Duration(minutes: 1), (timer) {
+      _checkSessionValidity();
+    });
+
+  }
+
+  Future<void> _loadQuestionCount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = userDoc.data();
+      if (data != null) {
+        setState(() {
+          currentQuestionCount = data['questionCount'] ?? 0;
+        });
+      }
+    }
   }
 
   @override
@@ -47,6 +165,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
     scrollController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,7 +173,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
       appBar: AppBar(
         elevation: 1,
         shadowColor: Colors.white12,
-        centerTitle: false,  // Puedes cambiar esto a false si prefieres alineación a la izquierda
+        centerTitle: false,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
@@ -90,11 +209,10 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
         ),
         backgroundColor: kBg300Color,
       ),
-
       body: SafeArea(
         child: Column(
           children: [
-            Expanded(child: buildChatList()), // Cambiado a Expanded
+            Expanded(child: buildChatList()),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: input_widget.TextInputWidget(
@@ -140,7 +258,6 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
     );
   }
 
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       scrollController.animateTo(
@@ -152,6 +269,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   }
 
   void _sendTextMessage() {
+    _checkSessionValidity(); // Verificar antes de enviar el mensaje
     _handleMessageSubmission();
   }
 
@@ -164,12 +282,12 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   bool _isSubmitting = false;
 
   Future<void> _handleMessageSubmission({String? question, XFile? image}) async {
-    if (_isSubmitting) return; // Salir si ya se está procesando un envío
+    if (_isSubmitting) return;
     _isSubmitting = true;
 
-    // Verificar si se alcanzó el límite de preguntas
-    if (currentQuestionCount >= questionLimit) {
-      _showError('Has alcanzado el límite de preguntas permitidas.');
+    final canAsk = await questionLimitService.canAskQuestion();
+    if (!canAsk) {
+      _showError('Has alcanzado el límite de preguntas permitidas. Intenta nuevamente más tarde.');
       _isSubmitting = false;
       return;
     }
@@ -208,7 +326,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
         questionAnswers.last.answer.clear();
         questionAnswers.last.answer.write(response);
         _scrollToBottom();
-        currentQuestionCount++; // Incrementar el conteo de preguntas
+        currentQuestionCount++;
       });
     } else {
       setState(() {
@@ -216,6 +334,7 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
       });
     }
 
+    await questionLimitService.incrementQuestionCount();
     _isSubmitting = false;
   }
 

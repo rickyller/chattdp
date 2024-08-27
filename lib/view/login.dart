@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_screen_admin.dart';
 import 'chat_screen_user.dart';
 import '../theme.dart';
+import 'package:uuid/uuid.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -60,6 +62,7 @@ class _LoginPageState extends State<LoginPage> {
     } else {
       _clearUserCredentials(); // Borrar credenciales
     }
+
     try {
       print('Intentando iniciar sesión con el correo: ${_emailController.text}');
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -68,33 +71,57 @@ class _LoginPageState extends State<LoginPage> {
       );
       print('Inicio de sesión exitoso: UID = ${userCredential.user!.uid}');
 
-      // Obtener el rol del usuario desde Firestore
-      print('Obteniendo datos del usuario desde Firestore...');
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
+      // Generar un token de sesión único
+      String newSessionToken = Uuid().v4();
+      print("Nuevo sessionToken generado: $newSessionToken");
 
-      if (userDoc.exists && userDoc.data() != null) {
-        print('Datos del usuario encontrados en Firestore.');
-        Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-        if (userData.containsKey('role')) {
-          String role = userData['role'];
-          print('Rol del usuario: $role');
+      // Obtener la referencia del documento del usuario en Firestore
+      DocumentReference userDoc = FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid);
 
-          if (role == 'admin') {
-            print('Redirigiendo al administrador a la pantalla de admin.');
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ChatScreenAdmin()),  // Pantalla de admin
-            );
+      // Obtener los datos actuales del usuario
+      DocumentSnapshot userSnapshot = await userDoc.get();
+
+      if (userSnapshot.exists) {
+        Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
+
+        if (userData != null) {
+          // Verificar y manejar la sesión anterior si existe
+          String? currentSessionToken = userData['sessionToken'];
+          if (currentSessionToken != null && currentSessionToken.isNotEmpty) {
+            print('Invalidando la sesión anterior con token: $currentSessionToken');
+            await _invalidateSession(currentSessionToken);
+          }
+
+          // Guardar el nuevo token de sesión en Firestore
+          await userDoc.update({'sessionToken': newSessionToken});
+          print("Nuevo sessionToken guardado en Firestore");
+
+          // Guardar el sessionToken localmente
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('sessionToken', newSessionToken);
+          print("sessionToken guardado localmente");
+
+          // Manejo de la sesión y la redirección
+          if (userData.containsKey('role')) {
+            String role = userData['role'];
+            print('Rol del usuario: $role');
+
+            if (role == 'admin') {
+              print('Redirigiendo al administrador a la pantalla de admin.');
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const ChatScreenAdmin()),  // Pantalla de admin
+              );
+            } else {
+              print('Redirigiendo al usuario a la pantalla de usuario.');
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
+              );
+            }
           } else {
-            print('Redirigiendo al usuario a la pantalla de usuario.');
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
-            );
+            _showError("Falta el rol del usuario. Por favor, contacta con soporte.");
           }
         } else {
-          _showError("Rol de usuario no encontrado. Por favor, contacta con soporte.");
+          _showError("No se pudieron obtener los datos del usuario. Por favor, contacta con soporte.");
         }
       } else {
         _showError("No se encontró un rol para este usuario.");
@@ -110,6 +137,32 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         _showError("Error desconocido: ${e.toString()}");
       }
+    }
+ catch (e) {
+      print('Error durante el inicio de sesión: $e');
+      if (e is FirebaseAuthException) {
+        if (e.code == 'network-request-failed') {
+          _showError("Error de red: Verifique su conexión a internet.");
+        } else {
+          _showError("Error al iniciar sesión: ${e.message}");
+        }
+      } else {
+        _showError("Error desconocido: ${e.toString()}");
+      }
+    }
+  }
+
+
+  Future<void> _invalidateSession(String sessionToken) async {
+    // Aquí puedes implementar la lógica para invalidar la sesión anterior.
+    // Esto podría implicar eliminar el token de sesión antiguo o marcarlo como inválido.
+    // Por ejemplo, podrías usar Firestore para manejar esto:
+
+    try {
+      DocumentReference sessionDoc = FirebaseFirestore.instance.collection('sessions').doc(sessionToken);
+      await sessionDoc.delete();
+    } catch (e) {
+      print('Error al invalidar la sesión: $e');
     }
   }
 
