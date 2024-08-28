@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'package:chatgpt/view/chat_screen_admin.dart';
+import 'package:chatgpt/view/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import 'chat_screen_user.dart';
 import '../theme.dart';
 
@@ -12,8 +18,33 @@ class RegisterPage extends StatefulWidget {
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
-class EmailVerificationScreen extends StatelessWidget {
+class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({Key? key}) : super(key: key);
+
+  @override
+  _EmailVerificationScreenState createState() => _EmailVerificationScreenState();
+}
+
+class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPollingForEmailVerification();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startPollingForEmailVerification() {
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      await _checkEmailVerified(context);
+    });
+  }
 
   Future<void> _checkEmailVerified(BuildContext context) async {
     User? user = FirebaseAuth.instance.currentUser;
@@ -24,11 +55,7 @@ class EmailVerificationScreen extends StatelessWidget {
 
       // Navegar a la pantalla principal
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const ChatScreenUser()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Aún no has verificado tu correo electrónico.")),
+        MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     }
   }
@@ -118,7 +145,6 @@ class EmailVerificationScreen extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _RegisterPageState extends State<RegisterPage> {
@@ -189,65 +215,6 @@ class _RegisterPageState extends State<RegisterPage> {
     return hasMinLength && hasUpperCase && hasLowerCase && hasDigits;
   }
 
-
-  Future<void> _signInWithGoogle() async {
-    try {
-      // Iniciar el flujo de autenticación de Google
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-
-      if (googleUser == null) {
-        // El usuario canceló el flujo de inicio de sesión
-        return;
-      }
-
-      // Obtener los detalles de autenticación de la solicitud
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Crear una nueva credencial
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Una vez que se realiza el inicio de sesión, retorna el UserCredential
-      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // Obtener el documento del usuario en Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      if (!userDoc.exists) {
-        // Si el documento no existe, crear uno nuevo con un rol por defecto
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-          'email': userCredential.user!.email,
-          'role': 'user', // O 'admin' si es necesario
-        });
-      }
-
-      // Verificar el rol del usuario
-      userDoc = await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).get();
-      String role = userDoc['role'];
-
-      if (role == 'admin') {
-        // Redirigir al administrador a una pantalla gratuita
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de admin
-        );
-      } else {
-        // Redirigir al usuario a la pantalla de pago
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
-        );
-      }
-    } catch (e) {
-      print("Error al iniciar sesión con Google: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,14 +324,12 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
-
                       ],
-
                     ),
-
                   ),
 
                   const SizedBox(height: 20),
+
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                     decoration: BoxDecoration(
@@ -373,9 +338,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     child: TextField(
                       controller: _confirmPasswordController,
-                      obscureText: true,
+                      obscureText: !_passwordVisible, // Controla si la contraseña es visible o no
                       style: const TextStyle(color: kWhiteColor),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: "Confirmar contraseña",
                         hintStyle: const TextStyle(
@@ -383,10 +348,21 @@ class _RegisterPageState extends State<RegisterPage> {
                           fontWeight: FontWeight.bold,
                           color: kWhiteColor,
                         ),
-
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                            color: kWhiteColor,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _passwordVisible = !_passwordVisible;
+                            });
+                          },
+                        ),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 5),
                   Align(
                     alignment: Alignment.centerLeft, // Mantiene la alineación a la izquierda
@@ -454,5 +430,82 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
   }
+
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      // Iniciar el flujo de autenticación de Google
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+
+      if (googleUser == null) {
+        // El usuario canceló el flujo de inicio de sesión
+        return;
+      }
+
+      // Obtener los detalles de autenticación de la solicitud
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Crear una nueva credencial
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Una vez que se realiza el inicio de sesión, retorna el UserCredential
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // Obtener el documento del usuario en Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      String newSessionToken = Uuid().v4();
+
+      if (!userDoc.exists) {
+        // Si el documento no existe, crear uno nuevo con un rol por defecto y emailVerified en true
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'email': userCredential.user!.email,
+          'role': 'user', // O 'admin' si es necesario
+          'emailVerified': true, // Marcar el email como verificado
+          'sessionToken': newSessionToken, // Establecer el token de sesión
+        });
+      } else {
+        // Si el documento ya existe, asegurarse de que emailVerified esté en true y actualizar el sessionToken
+        Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
+        if (userData != null) {
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).update({
+            'emailVerified': true,
+            'sessionToken': newSessionToken, // Actualizar el token de sesión
+          });
+        }
+      }
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('sessionToken', newSessionToken);
+
+      // Verificar el rol del usuario
+      userDoc = await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).get();
+      String role = userDoc['role'];
+
+      if (role == 'admin') {
+        // Redirigir al administrador a una pantalla gratuita
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const ChatScreenAdmin()),  // Pantalla de admin
+        );
+      } else {
+        // Redirigir al usuario a la pantalla de usuario
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
+        );
+      }
+    } catch (e) {
+      print("Error al iniciar sesión con Google: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+  }
+
 
 }

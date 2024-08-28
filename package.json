@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "firebase": "^10.12.5"
+    "@stripe/firestore-stripe-payments": "^0.0.6",
+    "firebase": "^10.12.5",
+    "firebase-admin": "^12.4.0",
+    "stripe": "^16.8.0"
   }
 }

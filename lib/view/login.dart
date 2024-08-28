@@ -1,15 +1,18 @@
 import 'package:chatgpt/view/register.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/incident_service.dart';
 import 'chat_screen_admin.dart';
 import 'chat_screen_user.dart';
 import '../theme.dart';
 import 'package:uuid/uuid.dart';
-
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,16 +25,15 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _rememberMe = false;
-  bool _passwordVisible = false; // Estado para controlar la visibilidad de la contraseña
+  bool _passwordVisible = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserCredentials(); // Cargar credenciales guardadas si existen
+    _loadUserCredentials();
   }
 
-  // Cargar credenciales almacenadas
-  void _loadUserCredentials() async {
+  Future<void> _loadUserCredentials() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _emailController.text = prefs.getString('email') ?? '';
@@ -40,27 +42,53 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  // Guardar credenciales si 'Recordar contraseña' está activado
-  void _saveUserCredentials() async {
+  Future<void> _saveUserCredentials() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setString('email', _emailController.text);
     prefs.setString('password', _passwordController.text);
     prefs.setBool('remember_me', _rememberMe);
   }
 
-  // Eliminar credenciales guardadas
-  void _clearUserCredentials() async {
+  Future<void> _clearUserCredentials() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.remove('email');
     prefs.remove('password');
     prefs.remove('remember_me');
   }
 
-  void _signIn() async {
-    if (_rememberMe) {
-      _saveUserCredentials(); // Guardar credenciales
+  Future<String> _getDeviceId() async {
+    if (kIsWeb) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? webDeviceId = prefs.getString('webDeviceId');
+
+      if (webDeviceId == null) {
+        webDeviceId = Uuid().v4();
+        await prefs.setString('webDeviceId', webDeviceId);
+      }
+
+      return webDeviceId;
     } else {
-      _clearUserCredentials(); // Borrar credenciales
+      var deviceInfo = DeviceInfoPlugin();
+      try {
+        if (Theme.of(context).platform == TargetPlatform.android) {
+          AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+          return androidInfo.id ?? Uuid().v4();
+        } else if (Theme.of(context).platform == TargetPlatform.iOS) {
+          IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+          return iosInfo.identifierForVendor ?? Uuid().v4();
+        } else {
+          return Uuid().v4();
+        }
+      } catch (e) {
+        return Uuid().v4();
+      }
+    }
+  }
+  Future<void> _signIn() async {
+    if (_rememberMe) {
+      _saveUserCredentials();
+    } else {
+      _clearUserCredentials();
     }
 
     try {
@@ -71,50 +99,80 @@ class _LoginPageState extends State<LoginPage> {
       );
       print('Inicio de sesión exitoso: UID = ${userCredential.user!.uid}');
 
-      // Generar un token de sesión único
+      // Verificar si el correo ha sido verificado
+      if (!userCredential.user!.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        _showError("Tu correo electrónico no ha sido verificado. Por favor, verifica tu correo.");
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
+        );
+        return;
+      }
+
+      String deviceId = await _getDeviceId();
+      print('Device ID: $deviceId');
+
       String newSessionToken = Uuid().v4();
       print("Nuevo sessionToken generado: $newSessionToken");
 
-      // Obtener la referencia del documento del usuario en Firestore
       DocumentReference userDoc = FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid);
-
-      // Obtener los datos actuales del usuario
       DocumentSnapshot userSnapshot = await userDoc.get();
 
       if (userSnapshot.exists) {
         Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
 
         if (userData != null) {
-          // Verificar y manejar la sesión anterior si existe
+          // Verificar y crear campos si no existen
+          if (!userData.containsKey('subscriptionType') || !userData.containsKey('maxIncidents')) {
+            String subscriptionType = userData['subscriptionType'] ?? 'free';
+            int maxIncidents = subscriptionType == 'premium' ? 100 : 10;
+
+            await userDoc.update({
+              'subscriptionType': subscriptionType,
+              'maxIncidents': maxIncidents,
+            });
+
+            print("Campos subscriptionType y maxIncidents actualizados en Firestore");
+          }
+
           String? currentSessionToken = userData['sessionToken'];
           if (currentSessionToken != null && currentSessionToken.isNotEmpty) {
             print('Invalidando la sesión anterior con token: $currentSessionToken');
             await _invalidateSession(currentSessionToken);
           }
 
-          // Guardar el nuevo token de sesión en Firestore
           await userDoc.update({'sessionToken': newSessionToken});
           print("Nuevo sessionToken guardado en Firestore");
 
-          // Guardar el sessionToken localmente
+          // Verifica y crea las subcolecciones
+          CollectionReference checkoutSessions = userDoc.collection('checkout_sessions');
+          if ((await checkoutSessions.get()).size == 0) {
+            await checkoutSessions.add({
+              'createdAt': Timestamp.now(),
+              'status': 'empty',
+            });
+          }
+
+          CollectionReference subscriptions = userDoc.collection('subscriptions');
+          if ((await subscriptions.get()).size == 0) {
+            await subscriptions.add({
+              'createdAt': Timestamp.now(),
+              'status': 'inactive',
+            });
+          }
+
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('sessionToken', newSessionToken);
-          print("sessionToken guardado localmente");
 
-          // Manejo de la sesión y la redirección
           if (userData.containsKey('role')) {
             String role = userData['role'];
-            print('Rol del usuario: $role');
-
             if (role == 'admin') {
-              print('Redirigiendo al administrador a la pantalla de admin.');
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const ChatScreenAdmin()),  // Pantalla de admin
+                MaterialPageRoute(builder: (context) => const ChatScreenAdmin()),
               );
             } else {
-              print('Redirigiendo al usuario a la pantalla de usuario.');
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
+                MaterialPageRoute(builder: (context) => const ChatScreenUser()),
               );
             }
           } else {
@@ -128,36 +186,12 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       print('Error durante el inicio de sesión: $e');
-      if (e is FirebaseAuthException) {
-        if (e.code == 'network-request-failed') {
-          _showError("Error de red: Verifique su conexión a internet.");
-        } else {
-          _showError("Error al iniciar sesión: ${e.message}");
-        }
-      } else {
-        _showError("Error desconocido: ${e.toString()}");
-      }
-    }
- catch (e) {
-      print('Error durante el inicio de sesión: $e');
-      if (e is FirebaseAuthException) {
-        if (e.code == 'network-request-failed') {
-          _showError("Error de red: Verifique su conexión a internet.");
-        } else {
-          _showError("Error al iniciar sesión: ${e.message}");
-        }
-      } else {
-        _showError("Error desconocido: ${e.toString()}");
-      }
+      _showError("Error desconocido: ${e.toString()}");
     }
   }
 
 
   Future<void> _invalidateSession(String sessionToken) async {
-    // Aquí puedes implementar la lógica para invalidar la sesión anterior.
-    // Esto podría implicar eliminar el token de sesión antiguo o marcarlo como inválido.
-    // Por ejemplo, podrías usar Firestore para manejar esto:
-
     try {
       DocumentReference sessionDoc = FirebaseFirestore.instance.collection('sessions').doc(sessionToken);
       await sessionDoc.delete();
@@ -187,25 +221,37 @@ class _LoginPageState extends State<LoginPage> {
           .doc(userCredential.user!.uid)
           .get();
 
-      if (userDoc.exists) {
-        String role = userDoc['role'];
-        print('Rol del usuario: $role');
+      if (!userDoc.exists) {
+        print("No se encontró un rol para este usuario. Creando uno nuevo.");
+        // Si el documento no existe, crear uno nuevo con un rol por defecto
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'email': userCredential.user!.email,
+          'role': 'user', // O 'admin' si es necesario
+          'sessionToken': null, // Inicialmente el token es nulo
+        });
+      }
 
-        if (role == 'admin') {
-          print('Redirigiendo al administrador a la pantalla de admin.');
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de admin
-          );
-        } else {
-          print('Redirigiendo al usuario a la pantalla de usuario.');
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
-          );
-        }
+      // Aquí es donde agregamos la lógica del sessionToken
+      String newSessionToken = Uuid().v4();
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).update({
+        'sessionToken': newSessionToken,
+      });
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('sessionToken', newSessionToken);
+
+      String role = userDoc['role'];
+      print('Rol del usuario: $role');
+
+      if (role == 'admin') {
+        print('Redirigiendo al administrador a la pantalla de admin.');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const ChatScreenAdmin()), // Pantalla de admin
+        );
       } else {
-        print("No se encontró un rol para este usuario.");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cuenta no encontrada. Por favor regístrate.")),
+        print('Redirigiendo al usuario a la pantalla de usuario.');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const ChatScreenUser()),  // Pantalla de usuario
         );
       }
     } catch (e) {
@@ -215,6 +261,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
   }
+
 
   Future<void> _resetPassword() async {
     if (_emailController.text.isEmpty) {

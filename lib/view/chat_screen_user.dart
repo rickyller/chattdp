@@ -12,73 +12,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:shared_preferences/shared_preferences.dart'; // Importa el paquete
-
 import 'login.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-class QuestionLimitService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  Future<bool> canAskQuestion() async {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      throw Exception("Usuario no autenticado");
-    }
-
-    final userDoc = await _firestore.collection('users').doc(user.uid).get();
-    final data = userDoc.data();
-
-    if (data == null) {
-      return true;
-    }
-
-    final lastAskedTime = (data['lastAskedTime'] as Timestamp?)?.toDate();
-    final questionCount = data['questionCount'] ?? 0;
-
-    final now = DateTime.now();
-    final timeDifference = now.difference(lastAskedTime ?? now);
-
-    if (timeDifference.inHours >= 24) {
-      // Resetea el contador si han pasado 24 horas
-      await _firestore.collection('users').doc(user.uid).update({
-        'questionCount': 0,
-        'lastAskedTime': now,
-      });
-      return true;
-    }
-
-    if (questionCount >= 25) {
-      return false;
-    }
-
-    return true;
-  }
-
-  Future<void> incrementQuestionCount() async {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      throw Exception("Usuario no autenticado");
-    }
-
-    final userDoc = _firestore.collection('users').doc(user.uid);
-
-    final currentData = await userDoc.get();
-    if (currentData.exists) {
-      final questionCount = currentData.data()?['questionCount'] ?? 0;
-
-      await userDoc.update({
-        'questionCount': questionCount + 1,
-        'lastAskedTime': DateTime.now(),
-      });
-    } else {
-      throw Exception("No se pudo obtener la información del usuario.");
-    }
-  }
-}
+import '../services/incident_service.dart';
 
 class ChatScreenUser extends StatefulWidget {
   const ChatScreenUser({Key? key}) : super(key: key);
@@ -91,9 +28,9 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   String? answer;
   final loadingNotifier = ValueNotifier<bool>(false);
   final List<QuestionAnswer> questionAnswers = [];
-  final questionLimitService = QuestionLimitService();
+  final incidentService = IncidentService(); // Usando IncidentService
 
-  int questionLimit = 25;
+  int questionLimit = 10; // Esto ahora puede depender del tipo de suscripción
   int currentQuestionCount = 0;
 
   late ScrollController scrollController;
@@ -102,7 +39,6 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   void _checkSessionValidity() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Obtén los datos del usuario desde Firestore
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
 
@@ -110,14 +46,15 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
         final storedSessionToken = userData['sessionToken'];
         print("Stored sessionToken en Firestore: $storedSessionToken");
 
-        // Obtén el token de sesión almacenado localmente
         SharedPreferences prefs = await SharedPreferences.getInstance();
         String? localSessionToken = prefs.getString('sessionToken');
         print("Local sessionToken: $localSessionToken");
 
-        // Comparar el token de Firestore con el token local
-        if (storedSessionToken != localSessionToken) {
-          // Si los tokens no coinciden, cierra la sesión y redirige al login
+        if (storedSessionToken != null && storedSessionToken.isNotEmpty && storedSessionToken == localSessionToken) {
+          // La sesión es válida
+          print("La sesión es válida.");
+        } else {
+          // La sesión no es válida
           _showError("Tu sesión ha caducado. Se cerrará la sesión.");
           await FirebaseAuth.instance.signOut();
           Navigator.of(context).pushReplacement(
@@ -132,31 +69,40 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
 
   @override
   void initState() {
+    super.initState();
     inputQuestionController = TextEditingController();
     scrollController = ScrollController();
-    _loadQuestionCount(); // Cargar el contador desde Firestore
-    super.initState();
-    _checkSessionValidity(); // Verificación al cargar la página
 
-    // Verificación periódica cada minuto
+    // Configura un listener para el documento del usuario
+    _setupIncidentCountListener();
+
+    _checkSessionValidity();
+
     Timer.periodic(Duration(minutes: 1), (timer) {
       _checkSessionValidity();
     });
-
   }
 
-  Future<void> _loadQuestionCount() async {
+  void _setupIncidentCountListener() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final data = userDoc.data();
-      if (data != null) {
-        setState(() {
-          currentQuestionCount = data['questionCount'] ?? 0;
-        });
-      }
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .listen((documentSnapshot) {
+        final data = documentSnapshot.data();
+        if (data != null) {
+          setState(() {
+            currentQuestionCount = data['incidentCount'] ?? 0;
+            final subscriptionType = data['subscriptionType'] ?? 'free';
+            questionLimit = subscriptionType == 'premium' ? 100 : 10;
+          });
+        }
+      });
     }
   }
+
 
   @override
   void dispose() {
@@ -268,10 +214,25 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
     });
   }
 
-  void _sendTextMessage() {
-    _checkSessionValidity(); // Verificar antes de enviar el mensaje
-    _handleMessageSubmission();
+  void _sendTextMessage() async {
+    try {
+      // Verificar si la sesión es válida antes de proceder
+      _checkSessionValidity();
+
+      // Usar IncidentService para verificar si el usuario puede realizar un incidente
+      bool canAsk = await incidentService.canPerformIncident();
+      if (!canAsk) {
+        _showError('Has alcanzado el límite de incidentes permitidos o el máximo de dispositivos permitidos.');
+        return;
+      }
+
+      // Si la verificación es exitosa, proceder a manejar el envío del mensaje
+      _handleMessageSubmission();
+    } catch (e) {
+      _showError('Error al manejar la solicitud: $e');
+    }
   }
+
 
   void _handleImagePicked(XFile? image) {
     if (image != null) {
@@ -280,69 +241,75 @@ class _ChatScreenUserState extends State<ChatScreenUser> {
   }
 
   bool _isSubmitting = false;
-
   Future<void> _handleMessageSubmission({String? question, XFile? image}) async {
     if (_isSubmitting) return;
     _isSubmitting = true;
 
-    final canAsk = await questionLimitService.canAskQuestion();
-    if (!canAsk) {
-      _showError('Has alcanzado el límite de preguntas permitidas. Intenta nuevamente más tarde.');
-      _isSubmitting = false;
-      return;
-    }
+    try {
+      bool canAsk = await incidentService.canPerformIncident();
+      if (!canAsk) {
+        _showError('Has alcanzado el límite de preguntas permitidas. Intenta nuevamente más tarde.');
+        _isSubmitting = false;
+        return;
+      }
 
-    final text = question ?? inputQuestionController.text.trim();
+      final text = question ?? inputQuestionController.text.trim();
 
-    if (text.isEmpty && image == null) {
-      _showError('Debes ingresar una pregunta o seleccionar una imagen.');
-      _isSubmitting = false;
-      return;
-    }
+      if (text.isEmpty && image == null) {
+        _showError('Debes ingresar una pregunta o seleccionar una imagen.');
+        _isSubmitting = false;
+        return;
+      }
 
-    Uint8List? imageBytes;
-    if (image != null) {
-      imageBytes = await image.readAsBytes();
-    }
+      Uint8List? imageBytes;
+      if (image != null) {
+        imageBytes = await image.readAsBytes();
+      }
 
-    inputQuestionController.clear();
-    loadingNotifier.value = true;
+      inputQuestionController.clear();
+      loadingNotifier.value = true;
 
-    setState(() {
-      questionAnswers.add(
-        QuestionAnswer(
-          question: text.isEmpty ? '[Imagen]' : text,
-          answer: StringBuffer(),
-          image: imageBytes,
-        ),
-      );
-    });
-
-    final response = await _sendRequestToServer(text, image: image);
-    loadingNotifier.value = false;
-
-    if (response != null) {
       setState(() {
-        questionAnswers.last.answer.clear();
-        questionAnswers.last.answer.write(response);
-        _scrollToBottom();
-        currentQuestionCount++;
+        questionAnswers.add(
+          QuestionAnswer(
+            question: text.isEmpty ? '[Imagen]' : text,
+            answer: StringBuffer(),
+            image: imageBytes,
+          ),
+        );
       });
-    } else {
-      setState(() {
-        questionAnswers.last.answer.write("Error al obtener respuesta del servidor");
-      });
-    }
 
-    await questionLimitService.incrementQuestionCount();
-    _isSubmitting = false;
+      final response = await _sendRequestToServer(text, image: image);
+      loadingNotifier.value = false;
+
+      if (response != null) {
+        setState(() {
+          questionAnswers.last.answer.clear();
+          questionAnswers.last.answer.write(response);
+          _scrollToBottom();
+          currentQuestionCount++;
+        });
+      } else {
+        setState(() {
+          questionAnswers.last.answer.write("Error al obtener respuesta del servidor");
+        });
+      }
+
+      await incidentService.incrementIncidentCount();
+    } catch (e) {
+      _showError('Error al manejar la solicitud: $e');
+    } finally {
+      _isSubmitting = false;
+    }
   }
+
 
   Future<String?> _sendRequestToServer(String question, {XFile? image}) async {
     const url = 'https://chattdp-service-gmpuppbwwq-uc.a.run.app/generate';
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(url));
+      var request = http.MultipartRequest('POST', Uri.parse
+(url));
 
       request.fields['input'] = question.isEmpty ? '[Imagen sin texto]' : question;
 
