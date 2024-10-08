@@ -17,12 +17,6 @@ class IncidentService {
       throw Exception("Usuario no autenticado");
     }
 
-    // Verificar y registrar el Device ID
-    String deviceId = await _getDeviceId();
-    bool deviceAllowed = await _checkAndRegisterDevice(user.uid, deviceId);
-    if (!deviceAllowed) {
-      throw Exception("Máximo de dispositivos permitidos alcanzado.");
-    }
 
     // Continuar con la lógica para verificar el límite de incidentes
     final userDoc = await _firestore.collection('users').doc(user.uid).get();
@@ -37,7 +31,7 @@ class IncidentService {
     final DateTime? lastIncidentReset = (data['lastIncidentReset'] as Timestamp?)?.toDate();
 
     // Determinar el límite de incidentes según el tipo de suscripción
-    final int maxIncidents = subscriptionType == 'premium' ? 200 : 10;
+    final int maxIncidents = subscriptionType == 'premium' ? 200 : 50;
 
     final now = DateTime.now();
 

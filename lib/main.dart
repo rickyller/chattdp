@@ -1,10 +1,12 @@
+import 'package:chatgpt/view/cancel_url.dart';
 import 'package:chatgpt/view/splash_screen.dart';
+import 'package:chatgpt/view/success_url.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'dart:io' show Platform; // Importación para detectar la plataforma
+import 'dart:io' show Platform;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +17,7 @@ void main() async {
 
     // Inicialización de Stripe para las plataformas que no sean Web
     if (!kIsWeb) {
-      Stripe.publishableKey = 'pk_live_51PsYtXEFUJxc3qsyiyTDJ7L4HgZYWpye5lOsTof0t1qipKZ079gJyAyBsCUZTOZacxATmyWRnaZ8Y5j3i2T2fvVM00sB9kcCos';
+      Stripe.publishableKey = 'pk_test_51PsYtXEFUJxc3qsy8JVYeUF41Ttoz5N3GjrNQ3FVcLcFca72QsaenVVIqH80oXrjSoQqHFsm6oPNqknc6SCaJP3P002mt9oMGW';
     }
 
     runApp(const MyApp());
@@ -39,7 +41,12 @@ class MyApp extends StatelessWidget {
           displayColor: Colors.white,
         ),
       ),
-      home: SplashScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => SplashScreen(),
+        '/success': (context) => SuccessPage(),  // Ruta para la página de éxito
+        '/cancel': (context) => CancelPage(),    // Ruta para la página de cancelación
+      },
     );
   }
 }

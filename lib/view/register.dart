@@ -153,6 +153,16 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _passwordVisible = false;
 
+  // Esta lista almacenará los requisitos que faltan o se han cumplido
+  List<String> _passwordFeedback = [];
+
+  // Método para actualizar la lista de retroalimentación en tiempo real
+  void _updatePasswordFeedback(String password) {
+    setState(() {
+      _passwordFeedback = getPasswordFeedback(password);
+    });
+  }
+
   void _register() async {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
@@ -203,18 +213,51 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-
-
   bool _isPasswordValid(String password) {
-    // Requisitos de la contraseña
     final hasMinLength = password.length >= 8;
     final hasUpperCase = password.contains(RegExp(r'[A-Z]'));
     final hasLowerCase = password.contains(RegExp(r'[a-z]'));
     final hasDigits = password.contains(RegExp(r'[0-9]'));
+    final hasSpecialCharacters = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')); // Caracteres especiales
 
-    return hasMinLength && hasUpperCase && hasLowerCase && hasDigits;
+    return hasMinLength && hasUpperCase && hasLowerCase && hasDigits && hasSpecialCharacters;
   }
 
+  List<String> getPasswordFeedback(String password) {
+    List<String> feedback = [];
+
+    if (password.length < 8) {
+      feedback.add("Debe tener al menos 8 caracteres.");
+    } else {
+      feedback.add("✔ Tiene al menos 8 caracteres.");
+    }
+
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      feedback.add("Debe incluir una letra mayúscula.");
+    } else {
+      feedback.add("✔ Incluye una letra mayúscula.");
+    }
+
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      feedback.add("Debe incluir una letra minúscula.");
+    } else {
+      feedback.add("✔ Incluye una letra minúscula.");
+    }
+
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      feedback.add("Debe incluir un número.");
+    } else {
+      feedback.add("✔ Incluye un número.");
+    }
+
+    if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+      feedback.add("Debe incluir un carácter especial.");
+    } else {
+      feedback.add("✔ Incluye un carácter especial.");
+    }
+
+    return feedback;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -244,29 +287,29 @@ class _RegisterPageState extends State<RegisterPage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton.icon(
-                    onPressed: _signInWithGoogle,
-                    icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
-                    label: const Text(
-                      "Regístrate con Google",
-                      style: TextStyle(
-                        fontFamily: 'Nud', // Especifica la fuente Nud aquí
-                        color: kWhiteColor,
-                        fontWeight: FontWeight.bold, // Mantén el texto en negrita si es necesario
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: Image.asset('assets/icons/google.png', height: 24, width: 24),
+                      label: const Text(
+                        "Regístrate con Google",
+                        style: TextStyle(
+                          fontFamily: 'Nud', // Especifica la fuente Nud aquí
+                          color: kWhiteColor,
+                          fontWeight: FontWeight.bold, // Mantén el texto en negrita si es necesario
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        backgroundColor: kBg300Color,
+                        elevation: 0,
+                        foregroundColor: kWhiteColor,
                       ),
-                      backgroundColor: kBg300Color,
-                      elevation: 0,
-                      foregroundColor: kWhiteColor,
                     ),
                   ),
-                ),
 
                   const SizedBox(height: 30),
                   Container(
@@ -302,6 +345,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextField(
                           controller: _passwordController,
                           obscureText: !_passwordVisible, // Controla si la contraseña es visible o no
+                          onChanged: _updatePasswordFeedback, // Se actualiza en tiempo real
                           style: const TextStyle(color: kWhiteColor),
                           decoration: InputDecoration(
                             border: InputBorder.none,
@@ -324,57 +368,48 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
+                        TextField(
+                          controller: _confirmPasswordController,
+                          obscureText: !_passwordVisible, // Controla si la contraseña es visible o no
+                          style: const TextStyle(color: kWhiteColor),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Confirmar contraseña",
+                            hintStyle: const TextStyle(
+                              fontFamily: 'Nud',  // Especifica la fuente Nud aquí
+                              fontWeight: FontWeight.bold,
+                              color: kWhiteColor,
+                            ),
+                          ),
+                          inputFormatters: [
+                            // Bloquear copiado y pegado
+                            FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x1F\x7F-\x9F]')), // Restringe caracteres de control
+                          ],
+                          enableInteractiveSelection: false, // Deshabilita selección de texto
+                        ),
+
+
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: kBg300Color,
-                      borderRadius: const BorderRadius.all(Radius.circular(20)),
-                    ),
-                    child: TextField(
-                      controller: _confirmPasswordController,
-                      obscureText: !_passwordVisible, // Controla si la contraseña es visible o no
-                      style: const TextStyle(color: kWhiteColor),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: "Confirmar contraseña",
-                        hintStyle: const TextStyle(
-                          fontFamily: 'Nud',  // Especifica la fuente Nud aquí
-                          fontWeight: FontWeight.bold,
-                          color: kWhiteColor,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: kWhiteColor,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _passwordVisible = !_passwordVisible;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 5),
+                  // Validación dinámica de la contraseña
                   Align(
                     alignment: Alignment.centerLeft, // Mantiene la alineación a la izquierda
                     child: Padding(
                       padding: const EdgeInsets.only(left: 10.0), // Añade un pequeño margen a la izquierda
-                      child: const Text(
-                        "Debe tener al menos 8 caracteres, incluir una letra mayúscula, una minúscula y un número.",
-                        style: TextStyle(
-                          color: kWhiteColor,
-                          fontSize: 12,
-                          fontFamily: 'Nud', // Aplicar la fuente 'Nud'
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _passwordFeedback.map((specification) => Text(
+                          specification,
+                          style: TextStyle(
+                            color: specification.startsWith("✔") ? Colors.green : Colors.red, // Verde si se ha cumplido, rojo si no.
+                            fontSize: 12,
+                            fontFamily: 'Nud', // Aplicar la fuente 'Nud'
+                          ),
+                        )).toList(),
                       ),
                     ),
                   ),
@@ -400,7 +435,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       fontWeight: FontWeight.bold,
                       color: kWhiteColor,
                       fontFamily: 'Nud',  // Especifica la fuente Nud aquí
-
                     ),
                   ),
                 ),
@@ -430,6 +464,8 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
   }
+
+
 
 
   Future<void> _signInWithGoogle() async {

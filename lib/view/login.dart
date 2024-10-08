@@ -122,10 +122,10 @@ class _LoginPageState extends State<LoginPage> {
         Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
 
         if (userData != null) {
-          // Verificar y crear campos si no existen
+          // Actualizar campos si es necesario
           if (!userData.containsKey('subscriptionType') || !userData.containsKey('maxIncidents')) {
             String subscriptionType = userData['subscriptionType'] ?? 'free';
-            int maxIncidents = subscriptionType == 'premium' ? 100 : 10;
+            int maxIncidents = subscriptionType == 'premium' ? 100 : 50;
 
             await userDoc.update({
               'subscriptionType': subscriptionType,
@@ -144,26 +144,10 @@ class _LoginPageState extends State<LoginPage> {
           await userDoc.update({'sessionToken': newSessionToken});
           print("Nuevo sessionToken guardado en Firestore");
 
-          // Verifica y crea las subcolecciones
-          CollectionReference checkoutSessions = userDoc.collection('checkout_sessions');
-          if ((await checkoutSessions.get()).size == 0) {
-            await checkoutSessions.add({
-              'createdAt': Timestamp.now(),
-              'status': 'empty',
-            });
-          }
-
-          CollectionReference subscriptions = userDoc.collection('subscriptions');
-          if ((await subscriptions.get()).size == 0) {
-            await subscriptions.add({
-              'createdAt': Timestamp.now(),
-              'status': 'inactive',
-            });
-          }
-
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('sessionToken', newSessionToken);
 
+          // Redirección basada en el rol
           if (userData.containsKey('role')) {
             String role = userData['role'];
             if (role == 'admin') {
@@ -191,6 +175,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
 
+
   Future<void> _invalidateSession(String sessionToken) async {
     try {
       DocumentReference sessionDoc = FirebaseFirestore.instance.collection('sessions').doc(sessionToken);
@@ -215,32 +200,30 @@ class _LoginPageState extends State<LoginPage> {
       UserCredential userCredential = await FirebaseAuth.instance.signInWithPopup(googleProvider);
       print('Inicio de sesión con Google exitoso: UID = ${userCredential.user!.uid}');
 
-      print('Obteniendo datos del usuario desde Firestore...');
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
+      DocumentReference userDoc = FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid);
+      DocumentSnapshot userSnapshot = await userDoc.get();
 
-      if (!userDoc.exists) {
+      if (!userSnapshot.exists) {
         print("No se encontró un rol para este usuario. Creando uno nuevo.");
         // Si el documento no existe, crear uno nuevo con un rol por defecto
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        await userDoc.set({
           'email': userCredential.user!.email,
           'role': 'user', // O 'admin' si es necesario
           'sessionToken': null, // Inicialmente el token es nulo
         });
       }
 
-      // Aquí es donde agregamos la lógica del sessionToken
+      // Genera un nuevo sessionToken
       String newSessionToken = Uuid().v4();
-      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).update({
+      await userDoc.update({
         'sessionToken': newSessionToken,
       });
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('sessionToken', newSessionToken);
 
-      String role = userDoc['role'];
+      // Verificar rol y redirigir a la pantalla correspondiente
+      String role = userSnapshot.exists ? userSnapshot['role'] : 'user';
       print('Rol del usuario: $role');
 
       if (role == 'admin') {
@@ -261,6 +244,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
   }
+
 
 
   Future<void> _resetPassword() async {
